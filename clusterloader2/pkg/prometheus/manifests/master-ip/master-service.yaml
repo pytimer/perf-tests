@@ -14,7 +14,7 @@ spec:
   clusterIP: None
   ports:
     - name: apiserver
-      port: 443
+      port: {{.MasterPort}}
     {{if not $PROMETHEUS_SCRAPE_APISERVER_ONLY}}
     - name: etcd-2379
       port: 2379

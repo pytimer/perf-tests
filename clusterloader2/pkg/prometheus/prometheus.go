@@ -54,6 +54,7 @@ func InitFlags(p *config.PrometheusConfig) {
 	flags.BoolEnvVar(&p.TearDownServer, "tear-down-prometheus-server", "TEAR_DOWN_PROMETHEUS_SERVER", true, "Whether to tear-down the prometheus server after tests (if set-up).")
 	flags.BoolEnvVar(&p.ScrapeEtcd, "prometheus-scrape-etcd", "PROMETHEUS_SCRAPE_ETCD", false, "Whether to scrape etcd metrics.")
 	flags.BoolEnvVar(&p.ScrapeNodeExporter, "prometheus-scrape-node-exporter", "PROMETHEUS_SCRAPE_NODE_EXPORTER", false, "Whether to scrape node exporter metrics.")
+	flags.BoolEnvVar(&p.ScrapeNodeExporterDaemonSet, "prometheus-scrape-node-exporter-daemonset", "PROMETHEUS_SCRAPE_NODE_EXPORTER_DAEMONSET", false, "Whether use daemonset to scrape node exporter metrics.")
 	flags.BoolEnvVar(&p.ScrapeKubelets, "prometheus-scrape-kubelets", "PROMETHEUS_SCRAPE_KUBELETS", false, "Whether to scrape kubelets. Experimental, may not work in larger clusters. Requires heapster node to be at least n1-standard-4, which needs to be provided manually.")
 	flags.BoolEnvVar(&p.ScrapeKubeProxy, "prometheus-scrape-kube-proxy", "PROMETHEUS_SCRAPE_KUBE_PROXY", true, "Whether to scrape kube proxy.")
 	flags.StringEnvVar(&p.SnapshotProject, "experimental-snapshot-project", "PROJECT", "", "GCP project used where disks and snapshots are located.")
@@ -92,6 +93,7 @@ func CompleteConfig(p *config.PrometheusConfig) {
 	p.DefaultServiceMonitors = p.ManifestPath + "/default/*.yaml"
 	p.MasterIPServiceMonitors = p.ManifestPath + "/master-ip/*.yaml"
 	p.NodeExporterPod = p.ManifestPath + "/exporters/node-exporter.yaml"
+	p.NodeExporterDaemonSet = p.ManifestPath + "/exporters/node-exporter-ds.yaml"
 }
 
 // NewController creates a new instance of Controller for the given config.
@@ -109,6 +111,7 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 	if errList != nil {
 		return nil, errList
 	}
+	mapping["MasterPort"] = clusterLoaderConfig.ClusterConfig.MasterPort
 	mapping["MasterIps"], err = getMasterIps(clusterLoaderConfig.ClusterConfig)
 	if err != nil {
 		klog.Warningf("Couldn't get master ip, will ignore manifests requiring it: %v", err)
@@ -142,7 +145,9 @@ func NewController(clusterLoaderConfig *config.ClusterLoaderConfig) (pc *Control
 
 	pc.templateMapping = mapping
 
-	pc.ssh = &util.GCloudSSHExecutor{}
+	if pc.provider == "gce" {
+		pc.ssh = &util.GCloudSSHExecutor{}
+	}
 
 	return pc, nil
 }
@@ -275,12 +280,20 @@ func (pc *Controller) exposeAPIServerMetrics() error {
 
 // runNodeExporter adds node-exporter as master's static manifest pod.
 // TODO(mborsz): Consider migrating to something less ugly, e.g. daemonset-based approach,
+// TODO(pytimer): Use daemonset instead of static pod.
 // when master nodes have configured networking.
 func (pc *Controller) runNodeExporter() error {
 	klog.Infof("Starting node-exporter on master nodes.")
 	kubemarkFramework, err := framework.NewFramework(&pc.clusterLoaderConfig.ClusterConfig, numK8sClients)
 	if err != nil {
 		return err
+	}
+
+	if pc.clusterLoaderConfig.PrometheusConfig.ScrapeNodeExporterDaemonSet {
+		if err := kubemarkFramework.ApplyTemplatedManifests(pc.clusterLoaderConfig.PrometheusConfig.NodeExporterDaemonSet, pc.templateMapping, client.Retry(apierrs.IsNotFound)); err != nil {
+			return fmt.Errorf("unable to apply node-exporter daemonset: %v", err)
+		}
+		return nil
 	}
 
 	// Validate masters first

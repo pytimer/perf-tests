@@ -40,6 +40,7 @@ type ClusterConfig struct {
 	EtcdInsecurePort           int
 	MasterIPs                  []string
 	MasterInternalIPs          []string
+	MasterPort                 int
 	MasterName                 string
 	KubemarkRootKubeConfigPath string
 	// Deprecated: use NamespaceConfig.DeleteStaleNamespaces instead.
@@ -67,6 +68,7 @@ type PrometheusConfig struct {
 	TearDownServer          bool
 	ScrapeEtcd              bool
 	ScrapeNodeExporter      bool
+	ScrapeNodeExporterDaemonSet bool
 	ScrapeKubelets          bool
 	ScrapeKubeProxy         bool
 	SnapshotProject         string
@@ -75,6 +77,7 @@ type PrometheusConfig struct {
 	DefaultServiceMonitors  string
 	MasterIPServiceMonitors string
 	NodeExporterPod         string
+	NodeExporterDaemonSet string
 }
 
 // GetMasterIP returns the first master ip, added for backward compatibility.

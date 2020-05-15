@@ -1,5 +1,8 @@
 {{$PROMETHEUS_SCRAPE_ETCD := DefaultParam .PROMETHEUS_SCRAPE_ETCD false}}
+{{$PROMETHEUS_SCRAPE_ETCD_CERTS := DefaultParam .PROMETHEUS_SCRAPE_ETCD_CERTS false}}
 {{$PROMETHEUS_SCRAPE_NODE_EXPORTER := DefaultParam .PROMETHEUS_SCRAPE_NODE_EXPORTER false}}
+{{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
+{{$PROMETHEUS_SCRAPE_KUBELETS_CERTS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS_CERTS false}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -13,6 +16,13 @@ spec:
   {{if $PROMETHEUS_SCRAPE_ETCD}}
   - interval: 5s
     port: etcd-2379
+    {{if $PROMETHEUS_SCRAPE_ETCD_CERTS}}
+    scheme: https
+    tlsConfig:
+      caFile: /etc/prometheus/secrets/etcd-certs/etcd-client-ca.crt
+      certFile: /etc/prometheus/secrets/etcd-certs/etcd-client.crt
+      keyFile: /etc/prometheus/secrets/etcd-certs/etcd-client.key
+    {{end}}
   - interval: 5s
     port: etcd-2382
   {{end}}
@@ -27,17 +37,29 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+  {{if $PROMETHEUS_SCRAPE_KUBELETS}}
   - interval: 5s
     port: kubelet
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+      {{if $PROMETHEUS_SCRAPE_KUBELETS_CERTS}}
+      caFile: /etc/prometheus/secrets/kubelet-certs/kubelet-client-ca.crt
+      certFile: /etc/prometheus/secrets/kubelet-certs/kubelet-client.crt
+      keyFile: /etc/prometheus/secrets/kubelet-certs/kubelet-client.key
+      {{end}}
   - interval: 5s
     port: kubelet
     path: /metrics/cadvisor
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
+      {{if $PROMETHEUS_SCRAPE_KUBELETS_CERTS}}
+      caFile: /etc/prometheus/secrets/kubelet-certs/kubelet-client-ca.crt
+      certFile: /etc/prometheus/secrets/kubelet-certs/kubelet-client.crt
+      keyFile: /etc/prometheus/secrets/kubelet-certs/kubelet-client.key
+      {{end}}
+  {{end}}
   - interval: 5s
     port: kube-scheduler
   - interval: 5s

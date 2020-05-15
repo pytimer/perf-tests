@@ -1,5 +1,8 @@
 {{$PROMETHEUS_SCRAPE_KUBELETS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS false}}
 {{$PROMETHEUS_SCRAPE_WINDOWS_NODES := DefaultParam .PROMETHEUS_SCRAPE_WINDOWS_NODES false}}
+{{$PROMETHEUS_SCRAPE_ETCD_CERTS := DefaultParam .PROMETHEUS_SCRAPE_ETCD_CERTS false}}
+{{$PROMETHEUS_SCRAPE_KUBELETS_CERTS := DefaultParam .PROMETHEUS_SCRAPE_KUBELETS_CERTS false}}
+{{$PROMETHEUS_STORAGE := DefaultParam .PROMETHEUS_STORAGE false}}
 
 apiVersion: monitoring.coreos.com/v1
 kind: Prometheus
@@ -29,6 +32,13 @@ spec:
     fsGroup: 2000
     runAsNonRoot: true
     runAsUser: 1000
+  secrets:
+  {{if $PROMETHEUS_SCRAPE_ETCD_CERTS}}
+  - etcd-certs
+  {{end}}
+  {{if $PROMETHEUS_SCRAPE_KUBELETS_CERTS}}
+  - kubelet-certs
+  {{end}}
   tolerations:
   - key: "monitoring"
     operator: "Exists"
@@ -38,6 +48,7 @@ spec:
   serviceMonitorSelector: {}
   version: v2.9.2
   retention: 7d
+  {{if $PROMETHEUS_STORAGE }}
   storage:
     volumeClaimTemplate:
       spec:
@@ -46,6 +57,7 @@ spec:
           requests:
             # Start with 10Gi, add 10Gi for each 1K nodes.
             storage: {{MultiplyInt 10 (AddInt 1 (DivideInt .Nodes 1000))}}Gi
+  {{end}}
   query:
     maxSamples: 100000000
   {{if $PROMETHEUS_SCRAPE_WINDOWS_NODES}}

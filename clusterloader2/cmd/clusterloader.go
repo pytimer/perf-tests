@@ -76,6 +76,7 @@ func initClusterFlags() {
 	// TODO(#595): Change the name of the MASTER_IP and MASTER_INTERNAL_IP flags and vars to plural
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterIPs, "masterip", "MASTER_IP", nil /*defaultValue*/, "Hostname/IP of the master node, supports multiple values when separated by commas")
 	flags.StringSliceEnvVar(&clusterLoaderConfig.ClusterConfig.MasterInternalIPs, "master-internal-ip", "MASTER_INTERNAL_IP", nil /*defaultValue*/, "Cluster internal/private IP of the master vm, supports multiple values when separated by commas")
+	flags.IntEnvVar(&clusterLoaderConfig.ClusterConfig.MasterPort, "master-port", "MASTER_PORT", 443, "Port of the master kube-apiserver")
 	flags.StringEnvVar(&clusterLoaderConfig.ClusterConfig.KubemarkRootKubeConfigPath, "kubemark-root-kubeconfig", "KUBEMARK_ROOT_KUBECONFIG", "",
 		"Path the to kubemark root kubeconfig file, i.e. kubeconfig of the cluster where kubemark cluster is run. Ignored if provider != kubemark")
 	flags.BoolEnvVar(&clusterLoaderConfig.ClusterConfig.APIServerPprofByClientEnabled, "apiserver-pprof-by-client-enabled", "APISERVER_PPROF_BY_CLIENT_ENABLED", true, "Whether apiserver pprof endpoint can be accessed by Kubernetes client.")
@@ -261,6 +262,7 @@ func main() {
 	if clusterLoaderConfig.PrometheusConfig.EnableServer {
 		// Pass overrides to prometheus controller
 		clusterLoaderConfig.TestScenario.OverridePaths = testOverridePaths
+		// Prometheus部署在external cluster中，通过获取kubemark集群的masters的地址来获取apiserver的服务
 		if prometheusController, err = prometheus.NewController(&clusterLoaderConfig); err != nil {
 			klog.Exitf("Error while creating Prometheus Controller: %v", err)
 		}
